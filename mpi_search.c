@@ -15,9 +15,9 @@ int main(void){
     MPI_Init( NULL , NULL);
     MPI_Comm_size( MPI_COMM_WORLD , &comm_sz);
     MPI_Comm_rank( MPI_COMM_WORLD , &my_rank);
-    //char local_test [12]  ;
+    
     char text [12] = "ababcababdig";
-    int local_int= 0; //conut the namber of reptition 
+    int  local_int [2] = {0,0}; //count the number of the repetition and the last idex of pattern found 
     int tot= 0; //tot number of repetiotion
     char pattern [5] = "abab"; // pattern to search 
     int tabel [4] = {0,0,0,0}; // tabel of help search
@@ -79,8 +79,19 @@ int main(void){
 
     
 
-    local_int = numer_repitition(local_test, pattern, tabel);
-    MPI_Reduce(&local_int, &tot, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    numer_repitition(local_test, pattern, tabel, 0,strlen(local_test), local_int);
+   
+    int local_i;
+    //printf("print local int %d",local_int[1]);
+    if((my_rank< comm_sz-1) && (local_int[0]>0) ){
+        MPI_Send(&local_int[0], 1, MPI_INT, my_rank+1, 0, MPI_COMM_WORLD);
+
+    }
+    if((my_rank > 0)&&(my_rank< comm_sz)){
+        MPI_Recv(&local_i, 1,MPI_INT, my_rank-1, 0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        numer_repitition(local_test, pattern, tabel, local_i, strlen(pattern), local_int);
+    }
+    MPI_Reduce( &local_int[1], &tot,1,  MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(my_rank == 0){
         printf("\n numbero of repetition founded %d \n", tot);
     }
