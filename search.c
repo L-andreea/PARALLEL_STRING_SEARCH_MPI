@@ -4,22 +4,20 @@
 
 
 
-int numer_repitition(char text[], char pattern[], int  tabel[]){
-    printf(" \nin number of repetiontion text: %s \n", text);
-    int i = 0; 
+void numer_repitition(char text[], char pattern[], int  tabel[], int i, int len_text, int result []){
+    
     int j=0;
-    int len_text = strlen(text);
     int len_pattern = strlen(pattern);
     int count = 0; //var for how loop need 
     int count_pattern = 0;// var for how 
-    while((j < len_text  ) && (len_text - j) >= (len_pattern-i) ){  //enter in loop 
+    while((j < len_text  ) ){  //enter in loop 
         count ++;
         if(pattern[i]== text[j]){
              j++;
              i++;
          }
          if(i == len_pattern){
-             printf("\n substring found at index %d  \n", j-i);
+             //printf("\n substring found at index %d  \n", j-i);
              count_pattern++;
              i = tabel[i-1]; 
              //continue;
@@ -35,8 +33,10 @@ int numer_repitition(char text[], char pattern[], int  tabel[]){
              }
          }
     }
-
-    return count_pattern;
+    result[0] = i; 
+    result[1] = result[1]+count_pattern;
+    //printf("\ni:%d, count: %d \n", result[0], result[1]);
+    
    
 }
 
