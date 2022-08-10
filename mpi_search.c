@@ -14,67 +14,39 @@ int comm_sz; /*number of processes*/
 int my_rank; /*my process rank*/
 int  local_int [2] = {0,0}; //count the number of the repetition and the last idex of pattern found 
 int tot= 0; //tot number of repetiotion
-char pattern [5] = "abab"; // pattern to search 
-int tabel [4] = {0,0,0,0}; // tabel of help search
-int len_pattern = 4;
+//char pattern [5] = "abab"; // pattern to search 
+int *tabel= NULL;//[4] = {0,0,0,0}; // tabel of help search
+//int len_pattern ;//= 4;
 int local_i;
 
 void master();
+void create_tabel();
 void slave();
 void search_text();
 
 
-int main(void){
+
+int main(int argc, char * argv[]){
     
     
-    MPI_Init( NULL , NULL);
+
+    MPI_Init( &argc , &argv);
     MPI_Comm_size( MPI_COMM_WORLD , &comm_sz);
     MPI_Comm_rank( MPI_COMM_WORLD , &my_rank);
     start = MPI_Wtime(); //start timer
-    
-    //char text [12] = "ababcababdig";
-   
+    printf("argc %s", argv[1]);
+    create_tabel(argv[1]);
 
+    //char text [12] = "ababcababdig";
     //char greeting[10000];
-    
-    
-    //creating tabel of helping with repetition 
-    int len = 0; 
-    int j = 1; 
-    while(j < len_pattern){
-        if(pattern[j]==pattern[len]){
-            len++;
-            tabel[j]=len;
-            j++;
-        }
-        else{
-            if(len != 0 ){
-                len = tabel[len-1];
-            }
-            else{
-                tabel[j]= 0;
-                j++;
-            }
-        }
-    }
-    //send_count = strlen(text) / comm_sz; //this need to be outside (if not work )
-    
     if(my_rank == 0){
         //this I'm the master 
-        master();
-        
-        
-        
-        
+        master(argv[1]);  
     }
 
     else{
-        slave();
+        slave(argv[1]);
     }
-    
-    
-    
-    
 /*
 
     //MPI_Scatterv(text,send_count, send_count, MPI_CHAR, local_test, send_count, MPI_CHAR, 0, MPI_COMM_WORLD);
@@ -111,37 +83,73 @@ int main(void){
     return 0;
 }
 
-void master(){
+void master(char pattern[]){
     // send task to worker 
     //riceve the result 
     // cotrlo the state of worker 
     // mecanism for recuper worker dead
+   
 
     file = read_file(); // read the file 
-    send_count = strlen(file)/comm_sz;
+    int len_file = strlen(file);
+   
+    send_count = len_file/comm_sz;
+ 
+    printf("\n send count is : %d, send_count+pattern is :%d \n", send_count, send_count);
+   // MPI_Bcast(tabel, strlen(pattern)+1, MPI_INT, 1, MPI_COMM_WORLD);
     MPI_Bcast(&send_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
     char local_test [send_count+1];
-    //printf("send count : %d", send_count);
+   
+    printf("\n master finish\n");
+    
     MPI_Scatter(file, send_count, MPI_CHAR, local_test, send_count, MPI_CHAR, 0, MPI_COMM_WORLD);
     local_test[send_count]= '\0';
     free(file);
-    search_text(local_test);
+    search_text(local_test, pattern);
     
 
 }
 
-void slave(){
+void create_tabel(char pattern[]){
+    int len_pattern = strlen(pattern)+1;
+    tabel = (int *)malloc(sizeof(int)*len_pattern);
+    int len = 0; 
+    int j = 1; 
+    while(j < len_pattern){
+        if(pattern[j]==pattern[len]){
+            len++;
+            tabel[j]=len;
+            j++;
+        }
+        else{
+            if(len != 0 ){
+                len = *(tabel + len-1);
+            }
+            else{
+                tabel[j]= 0;
+                j++;
+            }
+        }
+    }
+    
+}
+
+void slave(char pattern []){
+   
+
     MPI_Bcast(&send_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    char local_test [send_count+1];
+    char  local_test [send_count];//(//char* )malloc(sizeof(char)*(send_count+1));
+    
+    
     //printf("send count : %d", send_count);
     MPI_Scatter(file, send_count, MPI_CHAR, local_test, send_count, MPI_CHAR, 0, MPI_COMM_WORLD);
     local_test[send_count]= '\0';
-    search_text(local_test);
+    search_text(local_test, pattern);
 
    
 }
 
-void search_text(char local_test[]){
+void search_text(char local_test[], char pattern []){
 
     numer_repitition(local_test, pattern, tabel, 0,strlen(local_test), local_int);
    
