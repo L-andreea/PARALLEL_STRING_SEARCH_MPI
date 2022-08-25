@@ -121,7 +121,7 @@ int main(int argc, char * argv[]){
         index_p = (int *)malloc(sizeof(int)* size);
         //printf("\n dopo malloc my rank %d and index_p len is %ld \n", my_rank , (sizeof(index_p)/sizeof(int)));
         MPI_Scatterv(file, send_counter, disp, MPI_CHAR, local_test ,len_local_test[0], MPI_CHAR, 0, MPI_COMM_WORLD);
-        local_test[size] = '\0';
+        local_test[size-1] = '\0';
         //printf("\n my_rank is %d local test is : %s\n ",my_rank, local_test);
         
         
