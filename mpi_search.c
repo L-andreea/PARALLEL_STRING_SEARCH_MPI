@@ -3,95 +3,112 @@
 #include <mpi.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 #include "search.c"
 #include "reader.c"
 
 //var used 
 char * file = NULL; //file to read 
-int send_count ; 
 double start, end , min_start, max_end;
 int comm_sz; /*number of processes*/
 int my_rank; /*my process rank*/
 int local_int [2] = {0,0}; //count the number of the repetition and the last idex of pattern found 
 int tot= 0; //tot number of repetiotion
-int * table= NULL;//[4] = {0,0,0,0}; // tabel of help search
-//int len_pattern ;//= 4;
+int * table= NULL;//pointer of table of support 
 int local_i = 0;
-int len_pattern;
-char * pattern =NULL;
+int len_pattern;//lenght  of the pattern 
+char * pattern =NULL; //pointer of the pattern 
 int  len_local_test [1];  //var for ricive buffer
 int global_start_text;
 //var for scatterv 
 int * send_counter;
 
+
 char* local_test;
 int *disp;
 int * index_p;
+int ping_master;
+int ping_resp;
 
 
 void create_tabel(char  * pattern, int my_rank);
 void slave(char  * pattern);
 void search_text(char local_test[], char  *pattern);
+void check_worker();
 
 
 
 
 
 int main(int argc, char * argv[]){
-    // printf("\n pattern %s\n", argv[1]);
-    //  printf("\n name of file %s\n", argv[2]);
-    
-    //printf("\nprint start main \n ");
+
+
+    //chake the input 
+
+     if(argc <= 2){
+        
+              printf("\n number of arg need to be 2 <string to search> <path of file>\n");
+              return 0;
+        }
     MPI_Init( NULL,NULL);
     MPI_Comm_size( MPI_COMM_WORLD , &comm_sz);
     MPI_Comm_rank( MPI_COMM_WORLD , &my_rank);
-   // printf("\ninit mpi \n ");
+
+
+    if(comm_sz < 2){
+        printf("need at last 2 process");
+        MPI_Abort(MPI_COMM_WORLD,1);
+    }
+
+    
     start = MPI_Wtime(); //start timer
     
     len_pattern = strlen(argv[1]);
     pattern = (char *)malloc(sizeof(char)* len_pattern);
     
     pattern = argv[1];
-   // printf("\n len pattern: %d pattern: %s and my rank %d\n", len_pattern, pattern,my_rank );
-    //MPI_Bcast(&len_pattern, 1, MPI_INT, 0,MPI_COMM_WORLD);
-   // MPI_Bcast(pattern, len_pattern, MPI_CHAR, 0, MPI_COMM_WORLD);
-
-    create_tabel(pattern, my_rank);
-   //  printf("\n after create tabel\n ");
- 
-    
-    //char text [12] = "ababcababdig";
-    //char greeting[10000];
+   
+   
     if(my_rank == 0){
       
         //this I'm the master 
         file = read_file(argv[2]); // read the file 
+        if(file == NULL){
+            printf("file not extis");
+            MPI_Abort(MPI_COMM_WORLD,1);
+            
+        }
          int len_file = strlen(file);
          //make the array for send data 
-        printf("\n len_fine %d, file:%s \n", len_file, file);
-          send_count = len_file/(comm_sz-1);
+       
+         int  send_count = len_file/(comm_sz-1);
          int remaind = len_file%(comm_sz-1);
-         //printf("send_count %d, remaind:%d", send_count, remaind);
-          send_counter = (int *)malloc(sizeof(int)* comm_sz);
-         disp = (int *)malloc(sizeof(int)*comm_sz);
-          send_counter[0] = 0;
-          disp[0] = 0;
-
+         
+        send_counter = (int *)malloc(sizeof(int)* comm_sz);
+        disp = (int *)malloc(sizeof(int)*comm_sz);
+        send_counter[0] = 0;
+        disp[0] = 0;
+        int p = len_pattern-1;
          for(int i = 1 ; i < comm_sz ; i++){
-             disp[i] = disp[i-1]+send_counter[i-1];
-             if (remaind > 0 && remaind <= i){
-                send_counter[i]= send_count+1;
+             disp[i] = disp[i-1]+send_counter[i-1]-p;
+             if(i == 1){
+                disp[i]= 0;
+             }
+            if(i == comm_sz-1){
+                p = 0;
+            }
+             
+            if (remaind > 0 && remaind <= i){
+                send_counter[i]= send_count+1+p;
+                remaind--;
 
              }
-         else{
-                   send_counter[i]= send_count;
+            else{
+                   send_counter[i]= send_count+p;
          }
          }
-         printf("\n disp and counter \n");
-         for(int i = 0; i < comm_sz ; i++){
-            printf("\n send_count di i : %d is %d and disp is %d\n", i, send_counter[i],disp[i]);
-         }
-         printf("\n \n");
+        
  
     //printf("\n send count is : %d, send_count+pattern is :%d \n", send_count, send_count);
    // MPI_Bcast(tabel, strlen(pattern)+1, MPI_INT, 1, MPI_COMM_WORLD);
@@ -102,15 +119,78 @@ int main(int argc, char * argv[]){
      local_test = (char *)malloc(sizeof(char)* len_local_test[0]+1);
       MPI_Scatter(disp, 1, MPI_INT, &global_start_text, 1, MPI_INT,0, MPI_COMM_WORLD);
     MPI_Scatterv(file, send_counter, disp, MPI_CHAR, local_test, len_local_test[0]+1, MPI_CHAR, 0, MPI_COMM_WORLD);
-  //  printf("\n rank 0 local test is %s",local_test);
 
-        free(file);
-       // free(send_counter);
-       // free(disp);
-   
+  //  printf("\n rank 0 local test is %s",local_test);
+    
+    
+    int state[comm_sz];
+    state[0]=0;
+    for(int i = 1; i < comm_sz ; i++){
+            state[i]=1;
+
+        }
+    int complet = 0;
+    MPI_Status status;
+    MPI_Request request;
+    //printf("prima del while \n\n");
+    int rec;
+    while(complet < comm_sz){
+        //printf("\n compli %d \n", complet);
+        //sleep(0.00001);
+        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &ping_master, &status);
+         //printf(" status send %d ping maset %d", status.MPI_SOURCE, ping_master);
+        if(ping_master==1){
+           
+            //printf("\n status source: %d \n", status.MPI_SOURCE);
+            
+            MPI_Recv(&rec , 1, MPI_INT, status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            if(rec == 1){
+            state[status.MPI_SOURCE]=0;
+            }
+        }
+        //sleep(0.00001);
+        int count;
+       
+        for(int i = 0; i < comm_sz-1 ; i++){
+            //sleep(0.00001);
+            if(state[i]!=0){
+                state[i]++;
+                if(state[i]>999999){
+                //send work at el finish 
+                //printf("\n some machine was broke");
+                //MPI_Abort(MPI_COMM_WORLD, 1);
+                //check for the first thread with 
+                for(int j = 1; j < comm_sz ; j++){
+                    char * send = malloc(sizeof(char)* send_counter[i]);
+                    send = file + disp[i];
+                    if(state[j]==0){
+                        MPI_Isend(send, send_counter[i], MPI_CHAR, j ,0, MPI_COMM_WORLD, &request);
+                        state[j]=1;
+                        break;
+                    }
+                    
+                }
+            
+            }
+            }
+            
+            else{
+                count++;
+            }
+            
+        }
+        if(complet<count){
+            complet = count;
+        }
+       // printf("\ncomplet is:%d\n", complet);
+
+    
+    }
+    
     }
 
     else{
+         create_tabel(pattern, my_rank);
        // printf("\nbefore slave argc %s\n ", pattern);
         MPI_Scatter(send_counter, 1, MPI_INT, len_local_test, 1, MPI_INT,0, MPI_COMM_WORLD);
         MPI_Scatter(disp, 1, MPI_INT, &global_start_text, 1, MPI_INT,0, MPI_COMM_WORLD);
@@ -122,51 +202,50 @@ int main(int argc, char * argv[]){
         //printf("\n dopo malloc my rank %d and index_p len is %ld \n", my_rank , (sizeof(index_p)/sizeof(int)));
         MPI_Scatterv(file, send_counter, disp, MPI_CHAR, local_test ,len_local_test[0], MPI_CHAR, 0, MPI_COMM_WORLD);
         local_test[size-1] = '\0';
+        ping_resp = 1;
+        MPI_Request  request;
+        MPI_Status status;
+        if(MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &ping_resp, &status)){
+            int len;
+            MPI_Get_count(&status, MPI_CHAR, &len );
+            char * local_test = malloc(sizeof(char)* (len+1));
+            MPI_Recv(local_test, len, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            printf("%s \n\n",local_test);
+            search_text(local_test, pattern);
+        }
+         if(my_rank == 2){
+            sleep(2);
+            sleep(2);
+        }
         //printf("\n my_rank is %d local test is : %s\n ",my_rank, local_test);
+        search_text(local_test, pattern);
         
+      
         
        
-    
-
-        search_text(local_test, pattern);
+        MPI_Isend(&ping_resp, 1, MPI_INT, 0, 0,MPI_COMM_WORLD, &request);
+        
 
        
         
 
     }
-
-
-
-
-
     MPI_Reduce( &local_int[1], &tot,1,  MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(my_rank == 0){
 
         printf("\n numbero of repetition founded %d \n", tot);
     }
 
-    //core dump seach here 
-    //int * tot_index = (int *)malloc(sizeof(int)* tot);
-    //int *rec_count = (int *)malloc(sizeof(int)* comm_sz);
-    //int n = sizeof(index_p)/sizeof(int);
-
-   // printf(" \n dopo realloc my rank %d and index_p len is %ld \n", my_rank , (sizeof(index_p)/sizeof(int)));
-   // int * disp_index_p = (int *)malloc(sizeof(int)*my_rank);
-    
-
-    //MAKE REC_COUNT gather v is worng
-    //MPI_Gather(&n, 1, MPI_INT, rec_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
-   // disp_index_p[0]=0;
-    //for(int i = 1; i< my_rank; i++){
-    //    disp_index_p[i]= disp_index_p[i-1]+ rec_count[i-1];
-    //}
-
-   // MPI_Gatherv(index_p, n, MPI_INT, tot_index, rec_count, disp_index_p, MPI_INT,0, MPI_COMM_WORLD);
-   
-    
     end = MPI_Wtime();
     MPI_Reduce(&start, &min_start,1,  MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD );
     MPI_Reduce(&end, &max_end,1,  MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD );
+
+    if(my_rank == 0){
+       
+       printf("\n timing %f:\n", end-start);
+        printf("\n len text: %ld\n", strlen(file));
+        
+    }
   
 
 
@@ -198,7 +277,7 @@ void create_tabel(char * pattern, int my_rank){
         }
         else{
             if(len != 0 ){
-                len = *(table + len-1);
+                len = table[len]-1;
             }
             else{
                 table[j-1]=0;
@@ -211,9 +290,10 @@ void create_tabel(char * pattern, int my_rank){
 
 
 
-     MPI_Bcast(table, len_pattern, MPI_INT, 0, MPI_COMM_WORLD);
+    // MPI_Bcast(table, len_pattern, MPI_INT, 0, MPI_COMM_WORLD);
     
 }
+
 
 
 
@@ -221,21 +301,6 @@ void create_tabel(char * pattern, int my_rank){
 void search_text(char local_test[], char *pattern){
     
     numer_repitition(local_test, pattern, table, local_i,strlen(local_test), local_int, my_rank, index_p,  global_start_text);
-    
-     printf("\n my_rank %d local i %d\n",my_rank, local_int[0]);
-    //printf("print local int %d",local_int[1]);
-    if((my_rank < comm_sz-1)){
-        MPI_Send(&local_int[0], 1, MPI_INT, my_rank+1, 0, MPI_COMM_WORLD);
-
-    }
-    if(my_rank > 1){
-        MPI_Recv(&local_i, 1,MPI_INT, my_rank-1, 0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        if(local_i > 0){
-        numer_repitition(local_test, pattern, table, local_i, strlen(pattern)-1, local_int, my_rank, index_p, global_start_text);
-        }
-    }
-    
-    
-   
 
 }
+

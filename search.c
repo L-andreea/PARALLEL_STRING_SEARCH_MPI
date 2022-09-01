@@ -1,11 +1,13 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 
 
 void numer_repitition(char* text, char * pattern, int * tabel, int i, int len_text, int result[], int my_r, int * index, int start_text){
-    printf("\n pattern is %s and text is %s and my_rank is %d\n",pattern, text, my_r);
+    //printf("\n pattern is %s and text is %s and my_rank is %d\n",pattern, text, my_r);
+    
     int j=0;
     int len_pattern = strlen(pattern);
     int count = 0; //var for how loop need 
@@ -26,8 +28,8 @@ void numer_repitition(char* text, char * pattern, int * tabel, int i, int len_te
          if(i == len_pattern ){
            //  printf("secondo if i:%d , len_pattern: %d", i, len_pattern);
              //printf("\n substring found at index %d  \n", j-i);
-            index[count_pattern] = start_text + (j-len_pattern);
-             count_pattern++;
+            index[result[1]] = start_text + (j-len_pattern);
+            result[1]=result[1]+1;
              i = tabel[i-1]; 
             
          }
@@ -46,7 +48,7 @@ void numer_repitition(char* text, char * pattern, int * tabel, int i, int len_te
     result[0] = i; 
     result[1] = result[1]+count_pattern;
     //index  = (int *)realloc(index, sizeof(int)*(count_pattern));
-    printf("\ni:%d, count: %d my_rank %d \n", i, result[1], my_r);
+    //printf("\ni:%d, count: %d my_rank %d \n", i, result[1], my_r);
     
    
 }
