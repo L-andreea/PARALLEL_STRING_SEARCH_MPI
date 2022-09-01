@@ -269,6 +269,7 @@ void create_tabel(char * pattern, int my_rank){
     table = (int *)malloc(sizeof(int)* len_pattern);
     int len = 0; 
     int j = 1; 
+    table[0]=0;
     while(j < len_pattern){
         if(pattern[j]==pattern[len]){
             len++;
