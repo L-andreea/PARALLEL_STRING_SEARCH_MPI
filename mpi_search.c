@@ -109,18 +109,16 @@ int main(int argc, char * argv[]){
          }
          }
         
- 
-    //printf("\n send count is : %d, send_count+pattern is :%d \n", send_count, send_count);
-   // MPI_Bcast(tabel, strlen(pattern)+1, MPI_INT, 1, MPI_COMM_WORLD);
 
    
     MPI_Scatter(send_counter, 1, MPI_INT, len_local_test, 1, MPI_INT,0, MPI_COMM_WORLD);
-  //   printf("\n rank 0 len local test is : %d", len_local_test[0]);
+
+        
      local_test = (char *)malloc(sizeof(char)* len_local_test[0]+1);
       MPI_Scatter(disp, 1, MPI_INT, &global_start_text, 1, MPI_INT,0, MPI_COMM_WORLD);
     MPI_Scatterv(file, send_counter, disp, MPI_CHAR, local_test, len_local_test[0]+1, MPI_CHAR, 0, MPI_COMM_WORLD);
 
-  //  printf("\n rank 0 local test is %s",local_test);
+
     
     
     int state[comm_sz];
@@ -132,34 +130,29 @@ int main(int argc, char * argv[]){
     int complet = 0;
     MPI_Status status;
     MPI_Request request;
-    //printf("prima del while \n\n");
+   
     int rec;
     while(complet < comm_sz){
-        //printf("\n compli %d \n", complet);
-        //sleep(0.00001);
+  
         MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &ping_master, &status);
-         //printf(" status send %d ping maset %d", status.MPI_SOURCE, ping_master);
+     
         if(ping_master==1){
-           
-            //printf("\n status source: %d \n", status.MPI_SOURCE);
+
             
             MPI_Recv(&rec , 1, MPI_INT, status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             if(rec == 1){
             state[status.MPI_SOURCE]=0;
             }
         }
-        //sleep(0.00001);
+   
         int count;
        
         for(int i = 0; i < comm_sz-1 ; i++){
-            //sleep(0.00001);
+         
             if(state[i]!=0){
                 state[i]++;
                 if(state[i]>999999){
-                //send work at el finish 
-                //printf("\n some machine was broke");
-                //MPI_Abort(MPI_COMM_WORLD, 1);
-                //check for the first thread with 
+              
                 for(int j = 1; j < comm_sz ; j++){
                     char * send = malloc(sizeof(char)* send_counter[i]);
                     send = file + disp[i];
@@ -182,7 +175,6 @@ int main(int argc, char * argv[]){
         if(complet<count){
             complet = count;
         }
-       // printf("\ncomplet is:%d\n", complet);
 
     
     }
@@ -191,15 +183,14 @@ int main(int argc, char * argv[]){
 
     else{
          create_tabel(pattern, my_rank);
-       // printf("\nbefore slave argc %s\n ", pattern);
+ 
         MPI_Scatter(send_counter, 1, MPI_INT, len_local_test, 1, MPI_INT,0, MPI_COMM_WORLD);
         MPI_Scatter(disp, 1, MPI_INT, &global_start_text, 1, MPI_INT,0, MPI_COMM_WORLD);
-       // printf("\n len local test is : %d \n", len_local_test[0]);
-       //worst case 
+
         int size = len_local_test[0]+1; 
         local_test = (char *)malloc( sizeof(char)*size);
         index_p = (int *)malloc(sizeof(int)* size);
-        //printf("\n dopo malloc my rank %d and index_p len is %ld \n", my_rank , (sizeof(index_p)/sizeof(int)));
+       
         MPI_Scatterv(file, send_counter, disp, MPI_CHAR, local_test ,len_local_test[0], MPI_CHAR, 0, MPI_COMM_WORLD);
         local_test[size-1] = '\0';
         ping_resp = 1;
@@ -217,7 +208,7 @@ int main(int argc, char * argv[]){
             sleep(2);
             sleep(2);
         }
-        //printf("\n my_rank is %d local test is : %s\n ",my_rank, local_test);
+    
         search_text(local_test, pattern);
         
       
@@ -262,9 +253,8 @@ int main(int argc, char * argv[]){
 
 
 
-// create tabel of support for search and send it 
 void create_tabel(char * pattern, int my_rank){
-   // printf("create tabel");
+ 
     int len_pattern = strlen(pattern);
     table = (int *)malloc(sizeof(int)* len_pattern);
     int len = 0; 
@@ -291,7 +281,6 @@ void create_tabel(char * pattern, int my_rank){
 
 
 
-    // MPI_Bcast(table, len_pattern, MPI_INT, 0, MPI_COMM_WORLD);
     
 }
 
