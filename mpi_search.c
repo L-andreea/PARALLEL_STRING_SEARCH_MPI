@@ -9,7 +9,7 @@
 #include "reader.c"
 
 //var used 
-char * file = NULL; //file to read 
+char * file = NULL; //pointer to the file to read 
 double start, end , min_start, max_end;
 int comm_sz; /*number of processes*/
 int my_rank; /*my process rank*/
